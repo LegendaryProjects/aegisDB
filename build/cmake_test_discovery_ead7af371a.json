@@ -1,0 +1,27 @@
+{
+  "tests": 3,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "PagerTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "FileCreationAndAllocation",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/pager_test.cpp",
+          "line": 30
+        },
+        {
+          "name": "ReadAndWritePage",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/pager_test.cpp",
+          "line": 43
+        },
+        {
+          "name": "PersistenceTest",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/pager_test.cpp",
+          "line": 63
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+if(EXISTS "/Users/sagar/Desktop/project/AegisDB/build/pager_test[1]_tests.cmake")
+  include("/Users/sagar/Desktop/project/AegisDB/build/pager_test[1]_tests.cmake")
+else()
+  add_test(pager_test_NOT_BUILT pager_test_NOT_BUILT)
+endif()

@@ -1,0 +1,27 @@
+{
+  "tests": 3,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "BufferPoolTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "BasicPinAndUnpin",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/buffer_pool_test.cpp",
+          "line": 29
+        },
+        {
+          "name": "LRUEviction",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/buffer_pool_test.cpp",
+          "line": 55
+        },
+        {
+          "name": "DirtyPageWriteBack",
+          "file": "\/Users\/sagar\/Desktop\/project\/AegisDB\/tests\/storage\/buffer_pool_test.cpp",
+          "line": 91
+        }
+      ]
+    }
+  ]
+}

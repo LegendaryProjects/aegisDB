@@ -1,0 +1,5 @@
+if(EXISTS "/Users/sagar/Desktop/project/AegisDB/build/storage_engine_test[1]_tests.cmake")
+  include("/Users/sagar/Desktop/project/AegisDB/build/storage_engine_test[1]_tests.cmake")
+else()
+  add_test(storage_engine_test_NOT_BUILT storage_engine_test_NOT_BUILT)
+endif()

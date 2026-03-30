@@ -1,0 +1,1 @@
+/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -L/opt/homebrew/opt/ruby/lib CMakeFiles/log_recovery_test.dir/tests/recovery/log_recovery_test.cpp.o -o log_recovery_test  libaegis_storage.a lib/libgtest.a lib/libgtest_main.a lib/libgtest.a
