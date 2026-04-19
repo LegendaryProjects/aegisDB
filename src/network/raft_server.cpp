@@ -659,7 +659,7 @@ Status RaftServer::RequestVote(ServerContext* context, const RequestVoteRequest*
 
     if (grant_vote) {
         std::cout << "[Node " << node_id_ << "] Voted YES for Candidate "
-                  << request->candidate_id() << " in Term " << current_term_ << "\n";
+                  << request->candidate_id() << " in Term " << current_term_ << std::endl;
     }
     return Status::OK;
 }
@@ -672,6 +672,10 @@ Status RaftServer::AppendEntries(ServerContext* context, const AppendEntriesRequ
         return Status::OK;
     }
 
+    const int previous_term = current_term_;
+    const int previous_leader_id = current_leader_id_;
+    const bool was_leader = (state_ == LEADER);
+
     if (request->term() > current_term_) {
         voted_for_ = -1;
     }
@@ -680,6 +684,11 @@ Status RaftServer::AppendEntries(ServerContext* context, const AppendEntriesRequ
     state_ = FOLLOWER;
     current_leader_id_ = request->leader_id();
     last_heartbeat_ = std::chrono::steady_clock::now();
+
+    if (was_leader || previous_leader_id != current_leader_id_ || previous_term != current_term_) {
+        std::cout << "[Node " << node_id_ << "] Recognized Node " << current_leader_id_
+                  << " as Leader for Term " << current_term_ << std::endl;
+    }
 
     const int prev_index = request->prev_log_index();
     const int prev_term = request->prev_log_term();
@@ -746,7 +755,7 @@ Status RaftServer::AppendEntries(ServerContext* context, const AppendEntriesRequ
 
     if (applied_count > 0) {
         std::cout << "[Node " << node_id_ << "] Synced " << applied_count
-                  << " new entries from Leader.\n";
+                  << " new entries from Leader." << std::endl;
     }
 
     response->set_success(true);
@@ -773,7 +782,7 @@ void RaftServer::SendRequestVoteToAll() {
 
         if (votes_received_ >= majority) {
             std::cout << "\n>>> [Node " << node_id_ << "] WON ELECTION FOR TERM "
-                      << current_term_ << "! BECOMING LEADER <<<\n\n";
+                      << current_term_ << "! BECOMING LEADER <<<" << std::endl;
             state_ = LEADER;
             current_leader_id_ = node_id_;
             last_heartbeat_ = std::chrono::steady_clock::now();
@@ -812,7 +821,7 @@ void RaftServer::SendRequestVoteToAll() {
                 votes_received_++;
                 if (votes_received_ >= majority) {
                     std::cout << "\n>>> [Node " << node_id_ << "] WON ELECTION FOR TERM "
-                              << current_term_ << "! BECOMING LEADER <<<\n\n";
+                              << current_term_ << "! BECOMING LEADER <<<" << std::endl;
                     state_ = LEADER;
                     current_leader_id_ = node_id_;
                     last_heartbeat_ = std::chrono::steady_clock::now();
@@ -926,7 +935,7 @@ void RaftServer::RunElectionTimer() {
             }
 
             if (term_to_start > 0) {
-                std::cout << "[Node " << node_id_ << "] Starting Election for Term " << term_to_start << "...\n";
+                std::cout << "[Node " << node_id_ << "] Starting Election for Term " << term_to_start << "..." << std::endl;
                 SendRequestVoteToAll();
             }
         } else {

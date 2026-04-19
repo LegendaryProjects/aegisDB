@@ -9,6 +9,8 @@ IMAGE_NAME="${IMAGE_NAME:-aegisdb:latest}"
 REGISTRY_IMAGE="${REGISTRY_IMAGE:-}"
 
 # Node addresses (ip:port)
-NODE1_ADDR="${NODE1_ADDR:-192.168.1.10:50051}"
-NODE2_ADDR="${NODE2_ADDR:-192.168.1.11:50052}"
-NODE3_ADDR="${NODE3_ADDR:-192.168.1.12:50053}"
+# Single laptop on Docker Desktop: host.docker.internal:<port>
+# Multi-laptop demo: replace with each laptop's real LAN IP:<port>
+NODE1_ADDR="${NODE1_ADDR:-host.docker.internal:50051}"
+NODE2_ADDR="${NODE2_ADDR:-host.docker.internal:50052}"
+NODE3_ADDR="${NODE3_ADDR:-host.docker.internal:50053}"
