@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <random>
+#include <algorithm>
 
 using namespace aegis;
 

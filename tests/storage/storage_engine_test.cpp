@@ -27,7 +27,7 @@ TEST(StorageEngineTest, EndToEndApplyTest) {
         // 1. Raft says: "Consensus reached! Insert key 42."
         Command cmd_insert;
         cmd_insert.type = Command::Type::INSERT;
-        cmd_insert.key = 42;
+        cmd_insert.key = "42";
         cmd_insert.value = "Hello Distributed World!";
         
         bool insert_success = engine.Apply(cmd_insert);
@@ -37,20 +37,26 @@ TEST(StorageEngineTest, EndToEndApplyTest) {
         // 2. Raft says: "Read key 42."
         Command cmd_get;
         cmd_get.type = Command::Type::GET;
-        cmd_get.key = 42;
+        cmd_get.key = "42";
+        std::string out;
         
-        bool get_success = engine.Apply(cmd_get);
+        bool get_success = engine.Apply(cmd_get, &out);
         EXPECT_TRUE(get_success);
+        EXPECT_EQ(out, "Hello Distributed World!");
         std::cout << "Raft GET applied successfully." << std::endl;
 
         // 3. Raft says: "Consensus reached! Delete key 42."
         Command cmd_delete;
         cmd_delete.type = Command::Type::DELETE;
-        cmd_delete.key = 42;
+        cmd_delete.key = "42";
         
         bool delete_success = engine.Apply(cmd_delete);
         EXPECT_TRUE(delete_success);
         std::cout << "Raft DELETE applied successfully." << std::endl;
+
+        // 4. Verify key is gone
+        out.clear();
+        EXPECT_FALSE(engine.Apply(cmd_get, &out));
 
         engine.Shutdown();
     }

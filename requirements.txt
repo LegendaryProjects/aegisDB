@@ -1,0 +1,24 @@
+# AegisDB setup requirements (Docker-first workflow)
+
+docker
+docker compose plugin
+bash
+git
+
+# Optional native-build dependencies (if not using Docker):
+cmake>=3.14
+make
+g++ (C++17)
+protobuf
+gRPC
+
+# Ubuntu/Debian Docker install reference:
+# sudo apt-get update
+# sudo apt-get install -y docker.io docker-compose-plugin
+# sudo systemctl enable --now docker
+# sudo usermod -aG docker $USER
+
+# macOS / Windows:
+# Install Docker Desktop and verify:
+# docker --version
+# docker compose version

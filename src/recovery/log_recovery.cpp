@@ -1,22 +1,53 @@
 #include "recovery/log_recovery.h"
 #include <iostream>
+#include <utility>
 
 namespace aegis {
 
-LogRecovery::LogRecovery(const std::string& log_file_name, BufferPool* buffer_pool)
-    : log_file_name_(log_file_name), buffer_pool_(buffer_pool) {}
+namespace {
+
+const char* LogRecordTypeName(LogRecordType type) {
+    switch (type) {
+        case LogRecordType::INVALID: return "INVALID";
+        case LogRecordType::BEGIN: return "BEGIN";
+        case LogRecordType::COMMIT: return "COMMIT";
+        case LogRecordType::ABORT: return "ABORT";
+        case LogRecordType::INSERT: return "INSERT";
+        case LogRecordType::DELETE: return "DELETE";
+        case LogRecordType::NEW_PAGE: return "NEW_PAGE";
+    }
+    return "UNKNOWN";
+}
+
+}  // namespace
+
+LogRecovery::LogRecovery(const std::string& log_file_name,
+                                                 BufferPool* buffer_pool,
+                                                 std::function<void(const LogRecord&)> apply_callback)
+        : log_file_name_(log_file_name),
+            buffer_pool_(buffer_pool),
+            apply_callback_(std::move(apply_callback)) {}
 
 LogRecovery::~LogRecovery() = default;
 
 // ==========================================================
 // 1. DESERIALIZATION (Raw Bytes -> C++ Object)
 // ==========================================================
-bool LogRecovery::DeserializeLogRecord(const char* data, int32_t& offset, LogRecord* out_record) {
+bool LogRecovery::DeserializeLogRecord(const char* data, int32_t data_size, int32_t& offset, LogRecord* out_record) {
     int32_t start_offset = offset;
+
+    if (offset + static_cast<int32_t>(sizeof(int32_t)) > data_size) {
+        return false;
+    }
 
     // 1. Read the Size. If it's 0 or garbage, we hit the end of the file!
     int32_t size = *reinterpret_cast<const int32_t*>(data + offset);
-    if (size <= 0) return false; 
+    if (size < 20) {
+        return false;
+    }
+    if (start_offset + size > data_size) {
+        return false;
+    }
     offset += sizeof(int32_t);
 
     // 2. Read the rest of the 20-byte Header
@@ -34,11 +65,19 @@ bool LogRecovery::DeserializeLogRecord(const char* data, int32_t& offset, LogRec
 
     // 3. Read the Payload (If it's an action that modifies data)
     if (type == LogRecordType::INSERT || type == LogRecordType::DELETE) {
+        if (offset + static_cast<int32_t>(sizeof(PageId)) > start_offset + size) {
+            return false;
+        }
         PageId page_id = *reinterpret_cast<const PageId*>(data + offset); 
         offset += sizeof(PageId);
         
+        const int32_t tuple_size = size - 24;
+        if (tuple_size < 0) {
+            return false;
+        }
+
         Tuple tuple;
-        tuple.DeserializeFrom(data + offset,size-24); // The Tuple knows how to read itself!
+        tuple.DeserializeFrom(data + offset, tuple_size); // The Tuple knows how to read itself!
         
         *out_record = LogRecord(txn_id, prev_lsn, type, page_id, tuple);
     } else {
@@ -59,6 +98,11 @@ bool LogRecovery::DeserializeLogRecord(const char* data, int32_t& offset, LogRec
 // 2. THE REDO PHASE (Replay History Forward)
 // ==========================================================
 void LogRecovery::Redo() {
+    active_txns_.clear();
+    committed_txns_.clear();
+    parsed_records_.clear();
+    lsn_mapping_.clear();
+
     // 1. Open the file and jump to the very end to find out how big it is
     std::ifstream log_file(log_file_name_, std::ios::binary | std::ios::ate);
     if (!log_file.is_open()) return; // No log file exists yet!
@@ -77,35 +121,58 @@ void LogRecovery::Redo() {
     int32_t offset = 0;
     LogRecord record;
     
-    std::cout << "--- STARTING ARIES REDO PHASE ---" << std::endl;
+    // Demo mode: suppress verbose ARIES internals in terminal output.
+    // Uncomment for detailed recovery tracing.
+    // std::cout << "--- STARTING ARIES REDO PHASE ---" << std::endl;
 
-    while (DeserializeLogRecord(log_buffer, offset, &record)) {
+    while (DeserializeLogRecord(log_buffer, static_cast<int32_t>(file_size), offset, &record)) {
         // Save the location of this record so we can jump back to it during UNDO
         lsn_mapping_[record.GetLSN()] = offset - record.GetSize();
+        parsed_records_.push_back(record);
         
         // Track running transactions
         active_txns_[record.GetTxnId()] = record.GetLSN();
 
-        if (record.GetLogRecordType() == LogRecordType::COMMIT || 
-            record.GetLogRecordType() == LogRecordType::ABORT) {
+        if (record.GetLogRecordType() == LogRecordType::COMMIT) {
+            committed_txns_.insert(record.GetTxnId());
+            active_txns_.erase(record.GetTxnId());
+        } else if (record.GetLogRecordType() == LogRecordType::ABORT) {
             // The transaction finished, so it is no longer active!
             active_txns_.erase(record.GetTxnId());
         }
 
         // Print out what we are replaying!
-        std::cout << "REDO: LSN " << record.GetLSN() 
-                  << " | Txn: " << record.GetTxnId() 
-                  << " | Type: " << static_cast<int>(record.GetLogRecordType());
-                  
-        if (record.GetLogRecordType() == LogRecordType::INSERT) {
-            std::cout << " | Page: " << record.GetTargetPageId();
-            // TODO: Actually fetch the page and insert the tuple!
+        // std::cout << "REDO: LSN " << record.GetLSN()
+        //           << " | Txn: " << record.GetTxnId()
+        //           << " | Type: " << LogRecordTypeName(record.GetLogRecordType())
+        //           << " (" << static_cast<int>(record.GetLogRecordType()) << ")";
+        //
+        // if (record.GetLogRecordType() == LogRecordType::INSERT ||
+        //     record.GetLogRecordType() == LogRecordType::DELETE) {
+        //     std::cout << " | Page: " << record.GetTargetPageId();
+        // }
+        // std::cout << std::endl;
+    }
+
+    if (apply_callback_) {
+        int replayed_actions = 0;
+        for (const auto& parsed_record : parsed_records_) {
+            if (committed_txns_.count(parsed_record.GetTxnId()) == 0) {
+                continue;
+            }
+
+            if (parsed_record.GetLogRecordType() == LogRecordType::INSERT ||
+                parsed_record.GetLogRecordType() == LogRecordType::DELETE) {
+                apply_callback_(parsed_record);
+                replayed_actions++;
+            }
         }
-        std::cout << std::endl;
+        // std::cout << "REDO applied " << replayed_actions
+        //           << " committed local-WAL actions (startup replay)." << std::endl;
     }
 
     delete[] log_buffer;
-    std::cout << "--- REDO PHASE COMPLETE ---" << std::endl;
+    // std::cout << "--- REDO PHASE COMPLETE ---" << std::endl;
 }
 
 // ==========================================================
@@ -115,64 +182,24 @@ void LogRecovery::Redo() {
 // 3. THE UNDO PHASE (Rollback Failures Backward)
 // ==========================================================
 void LogRecovery::Undo() {
-    std::cout << "--- STARTING ARIES UNDO PHASE ---" << std::endl;
+    // std::cout << "--- STARTING ARIES UNDO PHASE ---" << std::endl;
 
-    // 1. Open the file to read the records we need to undo
-    std::ifstream log_file(log_file_name_, std::ios::binary);
-    if (!log_file.is_open() || active_txns_.empty()) {
-        std::cout << "No active transactions to undo. We are clean!" << std::endl;
-        std::cout << "--- UNDO PHASE COMPLETE ---" << std::endl;
+    if (active_txns_.empty()) {
+        // std::cout << "No active transactions to undo. We are clean!" << std::endl;
+        // std::cout << "--- UNDO PHASE COMPLETE ---" << std::endl;
         return;
     }
 
-    // 2. Loop through every Loser Transaction
+    // In this implementation, loser transactions are never replayed during REDO,
+    // so UNDO only reports what was skipped.
     for (auto const& [txn_id, last_lsn] : active_txns_) {
-        std::cout << "Rolling back Loser Transaction: " << txn_id << std::endl;
-
-        lsn_t current_lsn = last_lsn;
-
-        // Follow the prev_lsn_ chain backwards until we hit -1 (the start of the transaction)
-        while (current_lsn != -1) {
-            // Find exactly where this record lives in the file
-            int32_t offset = lsn_mapping_[current_lsn];
-            log_file.seekg(offset, std::ios::beg);
-
-            // Read the size of the record first
-            int32_t size;
-            log_file.read(reinterpret_cast<char*>(&size), sizeof(int32_t));
-
-            // Now read the whole record into a buffer
-            char* record_buffer = new char[size];
-            log_file.seekg(offset, std::ios::beg);
-            log_file.read(record_buffer, size);
-
-            // Deserialize it
-            LogRecord record;
-            int32_t temp_offset = 0;
-            DeserializeLogRecord(record_buffer, temp_offset, &record);
-
-            // UNDO THE ACTION!
-            if (record.GetLogRecordType() == LogRecordType::INSERT) {
-                std::cout << "  -> UNDO: Reverting INSERT at LSN " << record.GetLSN() 
-                          << " on Page " << record.GetTargetPageId() << std::endl;
-                // TODO: Call buffer_pool_ -> FetchPage and actually DELETE the tuple
-                
-            } else if (record.GetLogRecordType() == LogRecordType::DELETE) {
-                std::cout << "  -> UNDO: Reverting DELETE at LSN " << record.GetLSN() 
-                          << " on Page " << record.GetTargetPageId() << std::endl;
-                // TODO: Call buffer_pool_ -> FetchPage and actually INSERT the tuple back
-            }
-
-            // Move backwards down the chain!
-            current_lsn = record.GetPrevLSN();
-            delete[] record_buffer;
-        }
-        
-        std::cout << "Transaction " << txn_id << " successfully rolled back." << std::endl;
+        // std::cout << "Skipping loser transaction " << txn_id
+        //           << " (last LSN " << last_lsn
+        //           << "): uncommitted actions were not replayed." << std::endl;
     }
 
-    log_file.close();
-    std::cout << "--- UNDO PHASE COMPLETE ---" << std::endl;
+    active_txns_.clear();
+    // std::cout << "--- UNDO PHASE COMPLETE ---" << std::endl;
 }
 
 } // namespace aegis

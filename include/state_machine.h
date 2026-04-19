@@ -1,19 +1,28 @@
 #pragma once
-#include<bits/stdc++.h>
-using namespace std;
 
-class StateMachine{
-    public:
-    //virtual constructor for derived classes
-    virtual ~Stateachine()=default;
+#include <vector>
+#include <string>
 
-    //since raft dont care about what we are storing , we take the data as bytes
-    virtual string Apply(const vector<uint8_t>& log entry)=0;
+namespace aegis {
 
-    //the snapshots of checkpoints of log when the log size gets too big
-    virtual void Snapshot()=0;
-
-    //to restore storage engine state from snapshot
-    virtual void Restore()=0;
-
+// A generic command coming from the Raft layer
+struct Command {
+    enum class Type { INSERT, DELETE, GET } type;
+    std::string key;   // Changed from int32_t to match Raft Client string keys
+    std::string value; 
 };
+
+// The generic interface that Raft will use to talk to Storage
+class IStateMachine {
+public:
+    virtual ~IStateMachine() = default;
+
+    // Raft calls this when a log entry is committed and needs to be executed
+    virtual bool Apply(const Command& cmd, std::string* out_value = nullptr) = 0;
+
+    // Used for Week 10 (Snapshots)
+    virtual void CreateSnapshot(const std::string& snapshot_path) = 0;
+    virtual void InstallSnapshot(const std::string& snapshot_path) = 0;
+};
+
+} // namespace aegis

@@ -1,0 +1,50 @@
+services:
+  node1:
+    build: .
+    image: aegisdb:latest
+    container_name: aegis-node1
+    command:
+      - -lc
+      - cd /var/lib/aegis && /app/build/aegis_server 1 0.0.0.0:50051 node2:50052 node3:50053
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./data/node1:/var/lib/aegis
+
+  node2:
+    image: aegisdb:latest
+    container_name: aegis-node2
+    command:
+      - -lc
+      - cd /var/lib/aegis && /app/build/aegis_server 2 0.0.0.0:50052 node1:50051 node3:50053
+    ports:
+      - "50052:50052"
+    volumes:
+      - ./data/node2:/var/lib/aegis
+    depends_on:
+      - node1
+
+  node3:
+    image: aegisdb:latest
+    container_name: aegis-node3
+    command:
+      - -lc
+      - cd /var/lib/aegis && /app/build/aegis_server 3 0.0.0.0:50053 node1:50051 node2:50052
+    ports:
+      - "50053:50053"
+    volumes:
+      - ./data/node3:/var/lib/aegis
+    depends_on:
+      - node1
+
+  client:
+    image: aegisdb:latest
+    container_name: aegis-client
+    command:
+      - -lc
+      - cd /app/build && ./aegis_client node1 50051 node2 50052 node3 50053
+    stdin_open: true
+    tty: true
+    profiles:
+      - client
+

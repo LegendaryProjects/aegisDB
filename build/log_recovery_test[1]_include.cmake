@@ -1,5 +1,5 @@
-if(EXISTS "/Users/sagar/Desktop/project/AegisDB/build/log_recovery_test[1]_tests.cmake")
-  include("/Users/sagar/Desktop/project/AegisDB/build/log_recovery_test[1]_tests.cmake")
+if(EXISTS "/home/rahul/aegisDB/build/log_recovery_test[1]_tests.cmake")
+  include("/home/rahul/aegisDB/build/log_recovery_test[1]_tests.cmake")
 else()
   add_test(log_recovery_test_NOT_BUILT log_recovery_test_NOT_BUILT)
 endif()

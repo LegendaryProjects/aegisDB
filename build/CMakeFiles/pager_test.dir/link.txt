@@ -1,1 +1,1 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -L/opt/homebrew/opt/ruby/lib CMakeFiles/pager_test.dir/tests/storage/pager_test.cpp.o -o pager_test  libaegis_storage.a lib/libgtest_main.a lib/libgtest.a
+/usr/bin/c++ CMakeFiles/pager_test.dir/tests/storage/pager_test.cpp.o -o pager_test  libaegis_storage.a lib/libgtest_main.a lib/libgtest.a 

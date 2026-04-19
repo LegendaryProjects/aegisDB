@@ -235,6 +235,17 @@ INDEX_TEMPLATE_ARGUMENTS
 bool BPlusTree<KeyType, ValueType, KeyComparator>::Remove(const KeyType& key,Transaction* transaction) {
     if (IsEmpty()) return false;
 
+    auto release_parent_latches = [&]() {
+        if (transaction == nullptr) {
+            return;
+        }
+        for (Page* p : *transaction->GetPageSet()) {
+            p->WUnlock();
+            buffer_pool_->UnpinPage(p->GetPageId(), false);
+        }
+        transaction->GetPageSet()->clear();
+    };
+
     Page* fetched_leaf = FindLeafPage(key, false, Operation::DELETE, transaction);
     PageId leaf_page_id = fetched_leaf->GetPageId();
     char* raw_leaf = fetched_leaf->GetData();
@@ -245,7 +256,9 @@ bool BPlusTree<KeyType, ValueType, KeyComparator>::Remove(const KeyType& key,Tra
     
     if (leaf_node->GetSize() == old_size) {
         // Key not found
+        fetched_leaf->WUnlock();
         buffer_pool_->UnpinPage(leaf_page_id, false);
+        release_parent_latches();
         return false;
     }
 
@@ -257,7 +270,9 @@ bool BPlusTree<KeyType, ValueType, KeyComparator>::Remove(const KeyType& key,Tra
         }
     }
 
+    fetched_leaf->WUnlock();
     buffer_pool_->UnpinPage(leaf_page_id, true);
+    release_parent_latches();
     return true;
 }
 

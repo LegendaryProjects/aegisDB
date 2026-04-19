@@ -1,0 +1,10 @@
+build/
+.git/
+data/
+node_*.db
+node_*.log
+*.db
+*.log
+aegisdb-image.tar
+.DS_Store
+Thumbs.db

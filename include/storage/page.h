@@ -2,12 +2,15 @@
 
 #include "common/rwlatch.h"
 #include "storage/pager.h"
+#include <cstring>
 
 namespace aegis{
 
 class Page{
     public:
-    Page()=default;
+    Page() : page_id_(-1), pin_count_(0), is_dirty_(false) {
+        ResetMemory();
+    }
     ~Page()=default;
 
     char* GetData(){

@@ -1,0 +1,13 @@
+build/
+data/
+node_*.db
+node_*.log
+*.db
+*.log
+
+# Docker/image artifacts
+aegisdb-image.tar
+
+# OS/editor artifacts
+.DS_Store
+Thumbs.db
