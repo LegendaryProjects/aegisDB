@@ -29,7 +29,21 @@ include_directories(include "${CMAKE_BINARY_DIR}")
 # --- NETWORK LAYER (YOUR CODE) ---
 # =====================================================================
 find_package(Protobuf REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+find_package(gRPC CONFIG QUIET)
+
+if(gRPC_FOUND)
+    set(GRPC_CPP_PLUGIN_EXECUTABLE "$<TARGET_FILE:gRPC::grpc_cpp_plugin>")
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GRPC REQUIRED grpc++)
+    find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin REQUIRED)
+
+    add_library(gRPC::grpc++ INTERFACE IMPORTED)
+    target_include_directories(gRPC::grpc++ INTERFACE ${GRPC_INCLUDE_DIRS})
+    target_compile_options(gRPC::grpc++ INTERFACE ${GRPC_CFLAGS_OTHER})
+    target_link_libraries(gRPC::grpc++ INTERFACE ${GRPC_LINK_LIBRARIES})
+    target_link_options(gRPC::grpc++ INTERFACE ${GRPC_LDFLAGS_OTHER})
+endif()
 
 # Generate C++ code from the .proto file
 set(PROTO_SRC "${CMAKE_BINARY_DIR}/raft.pb.cc")
@@ -43,7 +57,7 @@ add_custom_command(
     ARGS --grpc_out="${CMAKE_BINARY_DIR}"
          --cpp_out="${CMAKE_BINARY_DIR}"
          -I "${CMAKE_SOURCE_DIR}/proto"
-         --plugin=protoc-gen-grpc="$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+         --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN_EXECUTABLE}
          "${CMAKE_SOURCE_DIR}/proto/raft.proto"
     DEPENDS "${CMAKE_SOURCE_DIR}/proto/raft.proto"
 )
