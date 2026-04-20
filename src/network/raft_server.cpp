@@ -1,9 +1,12 @@
 #include "network/raft_server.h"
+#include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <random>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+
+using namespace grpc;
 
 namespace {
 
@@ -963,5 +966,4 @@ void RaftServer::RunHeartbeat() {
             SendHeartbeatsToAll();
         }
     }
-}
 }
