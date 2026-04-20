@@ -68,8 +68,8 @@ RaftServer::RaftServer(int id, aegis::StorageEngine* db_engine)
       current_term_(0),
       votes_received_(0),
       voted_for_(-1),
-    commit_index_(-1),
-    last_applied_(-1),
+      commit_index_(-1),
+      last_applied_(-1),
       current_leader_id_(-1),
       db_engine_(db_engine),
       running_(true) {
@@ -171,10 +171,7 @@ bool RaftServer::ReplicateEntryToMajorityUnsafe(int target_log_index) {
                 success_count++;
             }
         }
-
-        if (success_count >= majority) {
-            break;
-        }
+        // FIX: Removed the early break here to ensure all peers, including Node 3, receive log updates.
     }
 
     if (success_count >= majority) {
@@ -943,6 +940,8 @@ void RaftServer::RunElectionTimer() {
             if (state_ != LEADER) {
                 // Failed pre-vote: wait another randomized timeout before retrying.
                 last_heartbeat_ = std::chrono::steady_clock::now();
+                // FIX: Properly step down leader state if we lost network connection
+                current_leader_id_ = -1;
             }
         }
 
@@ -964,4 +963,5 @@ void RaftServer::RunHeartbeat() {
             SendHeartbeatsToAll();
         }
     }
+}
 }
