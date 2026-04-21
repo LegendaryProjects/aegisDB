@@ -51,7 +51,7 @@ docker run -d --name "${CONTAINER_NAME}" \
   -p "${PORT}:${PORT}" \
   -v "${DATA_DIR}:/var/lib/aegis" \
   "${IMAGE_NAME}" \
-  -lc "cd /var/lib/aegis && /app/build/aegis_server ${NODE_ID} 0.0.0.0:${PORT} ${PEERS}" >/dev/null
+  -lc "cd /var/lib/aegis && /app/build/aegis_server ${NODE_ID} ${ADDR} ${PEERS}" >/dev/null
 
 echo "${CONTAINER_NAME} is running. Streaming logs (close terminal or Ctrl+C to stop this node)."
 docker logs -f "${CONTAINER_NAME}"
