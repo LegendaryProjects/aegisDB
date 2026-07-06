@@ -92,6 +92,8 @@ CREATE TABLE users COLUMNS id* name
 INSERT INTO users VALUES (1, Alice)
 SELECT FROM users
 SHOW TABLES
+DROP TABLE users
+DELETE 1 FROM users
 ```
 
 ## 7. Optional local simulation (single laptop)
